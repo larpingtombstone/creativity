@@ -37,12 +37,6 @@ const sleep = ms  => new Promise(r => setTimeout(r, ms));
 
 log(`FFmpeg resolved to: ${ffmpegPath}`);
 
-// ── Sanitize file path for FFmpeg (escape special chars) ────────────────────
-function safePath(filePath) {
-  // Pass via fs.createReadStream to avoid FFmpeg misreading special chars
-  return fs.createReadStream(filePath);
-}
-
 // ── Media queue ─────────────────────────────────────────────────────────────
 function getVideos() {
   const exts = [".mp4", ".mkv", ".mov", ".webm", ".avi"];
@@ -76,22 +70,23 @@ async function run() {
         x264: { preset: "superfast" },
       });
 
-      // Use readable stream to avoid FFmpeg choking on special chars in filename
-      const input = safePath(file);
-
-      const { command, output } = prepareStream(input, {
+      const { command, output } = prepareStream(file, {
         encoder,
         height:          cfg.HEIGHT,
         frameRate:       cfg.FPS,
         bitrateVideo:    cfg.BITRATE_KBPS,
         bitrateVideoMax: cfg.BITRATE_KBPS * 2,
         videoCodec:      Utils.normalizeVideoCodec("H264"),
-        ffmpegPath:      ffmpegPath,
+        // Disable audio filters — avoids libopus filtergraph error
+        includeAudio:    true,
+        customFfmpegFlags: [
+          "-af", "aresample=48000",
+          "-ar", "48000",
+          "-ac", "2",
+        ],
       });
 
-      command.on("error",  err => log(`FFmpeg error: ${err.message}`));
-      command.on("start",  cmd => log(`FFmpeg started`));
-      command.on("stderr", line => { if (line.includes("Error")) log(`FFmpeg: ${line}`); });
+      command.on("error", err => log(`FFmpeg error: ${err.message}`));
 
       await playStream(output, streamer, { type: "go-live" });
       log(`Finished: ${path.basename(file)}`);
