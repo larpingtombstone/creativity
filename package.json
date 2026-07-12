@@ -8,7 +8,8 @@
   "dependencies": {
     "discord.js-selfbot-v13": "latest",
     "@dank074/discord-video-stream": "latest",
-    "ffmpeg-static": "latest",
+    "@supabase/supabase-js": "latest",
+    "yt-dlp-wrap": "latest",
     "dotenv": "latest"
   }
 }
