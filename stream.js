@@ -1,3 +1,9 @@
+// Must be first — sets FFmpeg path before any other module loads
+const ffmpegStatic = require("ffmpeg-static");
+const ffmpegPath = ffmpegStatic || "ffmpeg";
+process.env.FFMPEG_PATH = ffmpegPath;
+process.env.FFMPEG_BINARY = ffmpegPath;
+
 require("dotenv").config();
 const { Client } = require("discord.js-selfbot-v13");
 const { Streamer, prepareStream, playStream, Utils } = require("@dank074/discord-video-stream");
@@ -28,6 +34,8 @@ const streamer = new Streamer(client);
 
 const log   = msg => console.log(`[${new Date().toISOString()}] ${msg}`);
 const sleep = ms  => new Promise(r => setTimeout(r, ms));
+
+log(`FFmpeg path resolved to: ${ffmpegPath}`);
 
 // ── Media queue ─────────────────────────────────────────────────────────────
 function getVideos() {
@@ -65,9 +73,11 @@ async function run() {
         bitrateVideoMax: cfg.BITRATE_KBPS * 2,
         videoCodec:      Utils.normalizeVideoCodec("H264"),
         h26xPreset:      "superfast",
+        ffmpegPath:      ffmpegPath,
       });
 
       command.on("error", err => log(`FFmpeg error: ${err.message}`));
+      command.on("start", cmd => log(`FFmpeg started: ${cmd}`));
 
       await playStream(output, streamer, { type: "go-live" });
       log(`Finished: ${path.basename(file)}`);
