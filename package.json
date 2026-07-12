@@ -1,0 +1,14 @@
+{
+  "name": "discord-stream",
+  "version": "1.0.0",
+  "main": "stream.js",
+  "scripts": {
+    "start": "node stream.js"
+  },
+  "dependencies": {
+    "discord.js-selfbot-v13": "latest",
+    "@dank074/discord-video-stream": "latest",
+    "ffmpeg-static": "latest",
+    "dotenv": "latest"
+  }
+}
