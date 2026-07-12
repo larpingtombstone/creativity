@@ -1,5 +1,0 @@
-[phases.setup]
-nixPkgs = ["ffmpeg-full"]
-
-[start]
-cmd = "node stream.js"
