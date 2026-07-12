@@ -1,8 +1,6 @@
 require("dotenv").config();
 const { Client } = require("discord.js-selfbot-v13");
 const { Streamer, prepareStream, playStream, Utils, Encoders } = require("@dank074/discord-video-stream");
-const { createClient } = require("@supabase/supabase-js");
-const YTDlpWrap = require("yt-dlp-wrap").default;
 const fs   = require("fs");
 const path = require("path");
 
@@ -17,34 +15,27 @@ const cfg = {
   FPS:              parseInt(process.env.FPS)              || 24,
   BITRATE_KBPS:     parseInt(process.env.BITRATE_KBPS)     || 1500,
   BITRATE_MAX_KBPS: parseInt(process.env.BITRATE_MAX_KBPS) || 2500,
-  MODE:             process.env.MODE                       || "supabase",
-  YOUTUBE_URL:      process.env.YOUTUBE_URL                || "",
-  SUPABASE_URL:     process.env.SUPABASE_URL               || "",
-  SUPABASE_KEY:     process.env.SUPABASE_KEY               || "",
-  SUPABASE_BUCKET:  process.env.SUPABASE_BUCKET            || "media",
 };
 
-// ── Validate ────────────────────────────────────────────────────────────────
 ["TOKEN", "GUILD_ID", "CHANNEL_ID"].forEach(k => {
   if (!cfg[k]) { console.error(`❌ Missing env var: ${k}`); process.exit(1); }
 });
-if (cfg.MODE === "youtube" && !cfg.YOUTUBE_URL) {
-  console.error("❌ MODE=youtube but YOUTUBE_URL is not set"); process.exit(1);
-}
-if (cfg.MODE === "supabase" && (!cfg.SUPABASE_URL || !cfg.SUPABASE_KEY)) {
-  console.error("❌ MODE=supabase but SUPABASE_URL or SUPABASE_KEY is missing"); process.exit(1);
+
+// ── 🎬 PLAYLIST — add / remove URLs here ───────────────────────────────────
+const PLAYLIST = [
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_My-Bread-was-Burnt-to-a-Crisp-Kasane-Tet_Media_YxSS7PkzGrQ_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Defoko-My-Bread-Was-Burnt-to-a-Crisp-UTA_Media_jRlHeEyxvbE_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/g.mp4",
+];
+// ───────────────────────────────────────────────────────────────────────────
+
+if (!PLAYLIST.length) {
+  console.error("❌ PLAYLIST is empty — add at least one URL"); process.exit(1);
 }
 
 // ── Setup ───────────────────────────────────────────────────────────────────
-const MEDIA_DIR = path.join(__dirname, "media");
-if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR);
-
 const client   = new Client({ checkUpdate: false });
 const streamer = new Streamer(client);
-const ytdlp    = new YTDlpWrap();
-const supabase = cfg.SUPABASE_URL
-  ? createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY)
-  : null;
 
 const log   = msg => console.log(`[${new Date().toISOString()}] ${msg}`);
 const sleep = ms  => new Promise(r => setTimeout(r, ms));
@@ -53,107 +44,17 @@ function shuffle(arr) {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
-// ── Source: Supabase ────────────────────────────────────────────────────────
-async function getSupabaseVideos() {
-  log("☁️  Fetching video list from Supabase...");
-  const { data, error } = await supabase.storage
-    .from(cfg.SUPABASE_BUCKET)
-    .list("", { limit: 500, sortBy: { column: "name", order: "asc" } });
-
-  if (error) {
-    log(`❌ Supabase error: ${error.message}`);
-    return [];
-  }
-
-  const exts = [".mp4", ".mkv", ".mov", ".webm", ".avi"];
-  const files = data.filter(f => exts.includes(path.extname(f.name).toLowerCase()));
-
-  if (!files.length) {
-    log("⚠ No videos found in Supabase bucket");
-    return [];
-  }
-
-  return files.map(f => {
-    const { data: urlData } = supabase.storage
-      .from(cfg.SUPABASE_BUCKET)
-      .getPublicUrl(f.name);
-    return { label: f.name, source: urlData.publicUrl };
-  });
+function labelOf(url) {
+  return decodeURIComponent(url.split("/").pop());
 }
 
-// ── Source: YouTube ─────────────────────────────────────────────────────────
-async function getYouTubeEntries() {
-  log("📡 Fetching playlist from YouTube...");
-  try {
-    const info = await ytdlp.getVideoInfo([
-      cfg.YOUTUBE_URL,
-      "--flat-playlist",
-      "--no-warnings",
-    ]);
-    if (Array.isArray(info)) {
-      log(`📋 Found ${info.length} videos`);
-      return info.map(e => e.url || e.webpage_url);
-    }
-    return [info.webpage_url || cfg.YOUTUBE_URL];
-  } catch (err) {
-    log(`❌ YouTube fetch failed: ${err.message}`);
-    return [];
-  }
-}
-
-async function resolveYouTubeURL(url) {
-  try {
-    const result = await ytdlp.execPromise([
-      url,
-      "-f", "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-      "--get-url",
-      "--no-warnings",
-    ]);
-    return result.trim().split("\n")[0];
-  } catch (err) {
-    log(`❌ Could not resolve stream URL: ${err.message}`);
-    return null;
-  }
-}
-
-// ── Source: Local ───────────────────────────────────────────────────────────
-function getLocalVideos() {
-  const exts = [".mp4", ".mkv", ".mov", ".webm", ".avi"];
-  return fs.readdirSync(MEDIA_DIR)
-    .filter(f => exts.includes(path.extname(f).toLowerCase()))
-    .map(f => ({ label: path.basename(f), source: path.join(MEDIA_DIR, f) }));
-}
-
-// ── Video queue (infinite generator) ───────────────────────────────────────
+// ── Infinite shuffled queue ─────────────────────────────────────────────────
 async function* videoQueue() {
   while (true) {
-    let items = [];
-
-    if (cfg.MODE === "supabase") {
-      const videos = await getSupabaseVideos();
-      if (!videos.length) { await sleep(15000); continue; }
-      items = shuffle(videos);
-      log(`☁️  ${items.length} video(s) from Supabase — looping...`);
-      for (const item of items) yield item;
-
-    } else if (cfg.MODE === "youtube") {
-      const urls = shuffle(await getYouTubeEntries());
-      if (!urls.length) { await sleep(15000); continue; }
-      for (const url of urls) {
-        const source = await resolveYouTubeURL(url);
-        if (!source) continue;
-        yield { source, label: url };
-      }
-
-    } else {
-      const videos = shuffle(getLocalVideos());
-      if (!videos.length) {
-        log("⚠ No videos in /media — waiting 10s...");
-        await sleep(10000);
-        continue;
-      }
-      log(`📁 ${videos.length} local video(s) — looping...`);
-      for (const item of videos) yield item;
+    const items = shuffle([...PLAYLIST]);
+    log(`📋 Playlist shuffled — ${items.length} video(s) queued`);
+    for (const url of items) {
+      yield { source: url, label: labelOf(url) };
     }
   }
 }
@@ -162,7 +63,7 @@ async function* videoQueue() {
 async function run() {
   log(`🔗 Joining voice channel ${cfg.CHANNEL_ID}...`);
   await streamer.joinVoice(cfg.GUILD_ID, cfg.CHANNEL_ID);
-  log(`✅ Joined. Mode: ${cfg.MODE.toUpperCase()} — streaming forever.`);
+  log(`✅ Joined — streaming ${PLAYLIST.length} video(s) forever.`);
 
   // Keep Go Live signal alive between videos
   const keepAlive = setInterval(() => {
@@ -227,6 +128,8 @@ async function startStream() {
 // ── Discord events ──────────────────────────────────────────────────────────
 client.on("ready", () => {
   log(`🎮 Logged in as ${client.user.tag}`);
+  log(`📋 Playlist: ${PLAYLIST.length} video(s)`);
+  PLAYLIST.forEach((url, i) => log(`   ${i + 1}. ${labelOf(url)}`));
   startStream();
 });
 
