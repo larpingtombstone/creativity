@@ -6,7 +6,7 @@ process.env.FFMPEG_BINARY = ffmpegPath;
 
 require("dotenv").config();
 const { Client } = require("discord.js-selfbot-v13");
-const { Streamer, prepareStream, playStream, Utils } = require("@dank074/discord-video-stream");
+const { Streamer, prepareStream, playStream, Utils, Encoders } = require("@dank074/discord-video-stream");
 const fs   = require("fs");
 const path = require("path");
 
@@ -35,7 +35,13 @@ const streamer = new Streamer(client);
 const log   = msg => console.log(`[${new Date().toISOString()}] ${msg}`);
 const sleep = ms  => new Promise(r => setTimeout(r, ms));
 
-log(`FFmpeg path resolved to: ${ffmpegPath}`);
+log(`FFmpeg resolved to: ${ffmpegPath}`);
+
+// ── Sanitize file path for FFmpeg (escape special chars) ────────────────────
+function safePath(filePath) {
+  // Pass via fs.createReadStream to avoid FFmpeg misreading special chars
+  return fs.createReadStream(filePath);
+}
 
 // ── Media queue ─────────────────────────────────────────────────────────────
 function getVideos() {
@@ -66,18 +72,26 @@ async function run() {
   for await (const file of videoQueue()) {
     log(`Now playing: ${path.basename(file)}`);
     try {
-      const { command, output } = prepareStream(file, {
+      const encoder = Encoders.software({
+        x264: { preset: "superfast" },
+      });
+
+      // Use readable stream to avoid FFmpeg choking on special chars in filename
+      const input = safePath(file);
+
+      const { command, output } = prepareStream(input, {
+        encoder,
         height:          cfg.HEIGHT,
         frameRate:       cfg.FPS,
         bitrateVideo:    cfg.BITRATE_KBPS,
         bitrateVideoMax: cfg.BITRATE_KBPS * 2,
         videoCodec:      Utils.normalizeVideoCodec("H264"),
-        h26xPreset:      "superfast",
         ffmpegPath:      ffmpegPath,
       });
 
-      command.on("error", err => log(`FFmpeg error: ${err.message}`));
-      command.on("start", cmd => log(`FFmpeg started: ${cmd}`));
+      command.on("error",  err => log(`FFmpeg error: ${err.message}`));
+      command.on("start",  cmd => log(`FFmpeg started`));
+      command.on("stderr", line => { if (line.includes("Error")) log(`FFmpeg: ${line}`); });
 
       await playStream(output, streamer, { type: "go-live" });
       log(`Finished: ${path.basename(file)}`);
