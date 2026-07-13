@@ -1,13 +1,9 @@
 require("dotenv").config();
 const { Client } = require("discord.js-selfbot-v13");
 const { Streamer, prepareStream, playStream, Utils, Encoders } = require("@dank074/discord-video-stream");
-const fs   = require("fs");
 const path = require("path");
-const os   = require("os");
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Config
-// ─────────────────────────────────────────────────────────────────────────────
+// -- Config --------------------------------------------------------------------
 const cfg = {
   TOKEN:            process.env.TOKEN,
   GUILD_ID:         process.env.GUILD_ID,
@@ -15,64 +11,58 @@ const cfg = {
   OWNER_ID:         process.env.OWNER_ID,
   TEXT_CHANNEL_ID:  process.env.TEXT_CHANNEL_ID,
   PREFIX:           process.env.PREFIX || "!",
-
   WIDTH:            parseInt(process.env.WIDTH)            || 1920,
   HEIGHT:           parseInt(process.env.HEIGHT)           || 1080,
   FPS:              parseInt(process.env.FPS)              || 30,
   BITRATE_KBPS:     parseInt(process.env.BITRATE_KBPS)     || 2500,
   BITRATE_MAX_KBPS: parseInt(process.env.BITRATE_MAX_KBPS) || 3500,
-  PRESET:           process.env.PRESET || "veryfast",
+  PRESET:           process.env.PRESET                     || "veryfast",
 };
 
 for (const key of ["TOKEN", "GUILD_ID", "CHANNEL_ID", "OWNER_ID", "TEXT_CHANNEL_ID"]) {
   if (!cfg[key]) {
-    console.error(`Missing required env var: ${key}`);
+    console.error(`[ERROR] Missing env var: ${key}`);
     process.exit(1);
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Playlist
-// ─────────────────────────────────────────────────────────────────────────────
+// -- Playlist ------------------------------------------------------------------
 const PLAYLIST = [
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_ba7YbGO2aq4_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/g.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_HE0mAgDAx-Q_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_uIyivoWQVjs_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_D50L4EeBHOs_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_The-Vanished-People-IT-S-GOING-DOWN-feat_Media_STiiHsg17Fk_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_V4elF7---KQ_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_kqj7b59D85Y_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_8Cm-7oCq9HA_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_LxVv4QneUuU_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_Soy4jGPHr3g_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_F38EuG2dAyM_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_3iUgKH8c7p4_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_ba7YbGO2aq4_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/g.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_HE0mAgDAx-Q_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_uIyivoWQVjs_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_D50L4EeBHOs_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_The-Vanished-People-IT-S-GOING-DOWN-feat_Media_STiiHsg17Fk_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_V4elF7---KQ_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_kqj7b59D85Y_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_8Cm-7oCq9HA_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_LxVv4QneUuU_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_Soy4jGPHr3g_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_F38EuG2dAyM_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video%27s/YTSave_YouTube_Media_3iUgKH8c7p4_001_1080p.mp4",
 ];
 
 if (!PLAYLIST.length) {
-  console.error("PLAYLIST is empty — add at least one URL");
+  console.error("[ERROR] PLAYLIST is empty");
   process.exit(1);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Client / Streamer setup
-// ─────────────────────────────────────────────────────────────────────────────
+// -- Setup ---------------------------------------------------------------------
 const client   = new Client({ checkUpdate: false });
 const streamer = new Streamer(client);
 
 const log   = msg => console.log(`[${new Date().toISOString()}] ${msg}`);
-const sleep = ms  => new Promise(resolve => setTimeout(resolve, ms));
-
+const sleep = ms  => new Promise(r => setTimeout(r, ms));
 const labelOf = url => decodeURIComponent(url.split("/").pop()).replace(/_/g, " ");
 
 function shuffle(arr) {
-  const result = [...arr];
-  for (let i = result.length - 1; i > 0; i--) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
+    [a[i], a[j]] = [a[j], a[i]];
   }
-  return result;
+  return a;
 }
 
 function buildEncoder() {
@@ -84,48 +74,29 @@ function buildEncoder() {
 
 let encoder = buildEncoder();
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Concat playlist file
-//
-// A single ffmpeg process plays every video back to back with zero gap and
-// zero re-negotiation of Go Live. "-stream_loop -1" makes ffmpeg loop the
-// whole list on its own, so playStream() only runs once per session.
-// ─────────────────────────────────────────────────────────────────────────────
-const CONCAT_PATH = path.join(os.tmpdir(), "stream_playlist.txt");
-
-function writeConcatFile(order) {
-  const lines = order.map(url => `file ${url}`).join("\n");
-  fs.writeFileSync(CONCAT_PATH, lines, "utf8");
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Runtime state
-// ─────────────────────────────────────────────────────────────────────────────
+// -- State ---------------------------------------------------------------------
 const state = {
-  order:          [],
+  queue:          [],
+  currentUrl:     null,
   currentCommand: null,
-  restartResolve: null,
-  pendingJump:    null,
   sessionStart:   null,
+  sessionResolve: null,
 };
 
-function buildOrderStartingAt(startUrl) {
-  const rest = shuffle(PLAYLIST.filter(u => u !== startUrl));
-  return startUrl ? [startUrl, ...rest] : shuffle([...PLAYLIST]);
+function fillQueue() {
+  state.queue = shuffle([...PLAYLIST]);
+  log(`[INFO] Queue refreshed and shuffled with ${state.queue.length} videos`);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Stream session — one continuous ffmpeg process per session
-// ─────────────────────────────────────────────────────────────────────────────
-async function streamSession(startUrl) {
-  state.order = buildOrderStartingAt(startUrl);
-  writeConcatFile(state.order);
+// -- Stream session ------------------------------------------------------------
+async function streamVideo(videoUrl) {
+  state.currentUrl = videoUrl;
   state.sessionStart = Date.now();
 
-  log(`Session start — ${state.order.length} video(s), leading with: ${labelOf(state.order[0])}`);
-  log(`Encoding: ${cfg.WIDTH}x${cfg.HEIGHT}@${cfg.FPS}fps, ${cfg.BITRATE_KBPS}-${cfg.BITRATE_MAX_KBPS}kbps, preset ${cfg.PRESET}`);
+  log(`[PLAYING] ${labelOf(videoUrl)}`);
+  log(`[SETTINGS] ${cfg.WIDTH}x${cfg.HEIGHT}@${cfg.FPS}fps | ${cfg.BITRATE_KBPS}-${cfg.BITRATE_MAX_KBPS}kbps | preset: ${cfg.PRESET}`);
 
-  const { command, output } = prepareStream(CONCAT_PATH, {
+  const { command, output } = prepareStream(videoUrl, {
     encoder,
     width:                       cfg.WIDTH,
     height:                      cfg.HEIGHT,
@@ -137,51 +108,60 @@ async function streamSession(startUrl) {
     minimizeLatency:             true,
     hardwareAcceleratedDecoding: false,
     customInputOptions: [
-      "-f", "concat",
-      "-safe", "0",
-      "-protocol_whitelist", "file,http,https,tcp,tls,crypto",
-      "-stream_loop", "-1",
-    ],
-  });
-
-  command.on("error", err => {
-    const msg = err?.message || String(err);
-    if (!msg.includes("SIGKILL") && !msg.includes("killed")) {
-      log(`ffmpeg error: ${msg}`);
-    }
+      "-protocol_whitelist", "file,http,https,tcp,tls,crypto"
+    ]
   });
 
   state.currentCommand = command;
 
-  const restartPromise = new Promise(resolve => { state.restartResolve = resolve; });
+  const sessionPromise = new Promise(resolve => {
+    state.sessionResolve = resolve;
+  });
+
+  command.on("end", () => {
+    log(`[FINISHED] ${labelOf(videoUrl)}`);
+    if (state.sessionResolve) state.sessionResolve();
+  });
+
+  command.on("error", err => {
+    const m = err?.message || String(err);
+    if (!m.includes("SIGKILL") && !m.includes("killed")) {
+      log(`[ERROR] FFmpeg: ${m}`);
+    }
+    if (state.sessionResolve) state.sessionResolve();
+  });
+
+  // Run the stream and race it against an internal completion signal
   await Promise.race([
     playStream(output, streamer, { type: "go-live" }),
-    restartPromise,
+    sessionPromise
   ]);
 
+  // Clean up references for this video
   try { command.kill("SIGKILL"); } catch (_) {}
   state.currentCommand = null;
-  state.restartResolve = null;
+  state.sessionResolve = null;
+  state.currentUrl = null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main loop — only re-enters on manual skip/jump or disconnect
-// ─────────────────────────────────────────────────────────────────────────────
+// -- Main loop -----------------------------------------------------------------
 async function run() {
-  log(`Joining voice channel ${cfg.CHANNEL_ID}`);
+  log(`[INFO] Joining voice channel ${cfg.CHANNEL_ID}...`);
   await streamer.joinVoice(cfg.GUILD_ID, cfg.CHANNEL_ID);
-  log("Joined voice channel");
+  log(`[SUCCESS] Joined voice channel`);
 
   const keepAlive = setInterval(() => {
     try { streamer.signalVideo?.(cfg.GUILD_ID, cfg.CHANNEL_ID, true); } catch (_) {}
   }, 4000);
   streamer._keepAlive = keepAlive;
 
-  let nextStart = null;
   while (true) {
-    await streamSession(nextStart);
-    nextStart = state.pendingJump;
-    state.pendingJump = null;
+    if (!state.queue.length) {
+      fillQueue();
+    }
+    const nextVideo = state.queue.shift();
+    await streamVideo(nextVideo);
+    await sleep(1000); // Small cooldown buffer between streams
   }
 }
 
@@ -194,7 +174,7 @@ async function startStream() {
     } catch (err) {
       attempt++;
       const backoff = Math.min(5000 * attempt, 30000);
-      log(`Connection lost (attempt ${attempt}) — retrying in ${backoff / 1000}s: ${err.message}`);
+      log(`[WARN] Lost connection (attempt ${attempt}) - retrying in ${backoff / 1000}s: ${err.message}`);
       try { clearInterval(streamer._keepAlive); streamer._keepAlive = null; } catch (_) {}
       try { streamer.stopStream?.(); } catch (_) {}
       await sleep(backoff);
@@ -202,90 +182,85 @@ async function startStream() {
   }
 }
 
-function forceRestart(jumpUrl) {
-  if (!state.restartResolve) return false;
-  state.pendingJump = jumpUrl || null;
-  try { state.currentCommand?.kill("SIGKILL"); } catch (_) {}
-  state.restartResolve();
-  return true;
+function interruptCurrentVideo() {
+  if (state.sessionResolve) {
+    try { state.currentCommand?.kill("SIGKILL"); } catch (_) {}
+    state.sessionResolve();
+    return true;
+  }
+  return false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Commands — owner only, ONE server text channel only, DMs always ignored
-// ─────────────────────────────────────────────────────────────────────────────
-// Selfbot activity in DMs is a strong ban-risk signal, so DMs are never read
-// at all, even from the owner. Commands only work in the exact configured
-// TEXT_CHANNEL_ID inside a real server.
-const isOwner = msg => msg.author.id === cfg.OWNER_ID;
-
+// -- Commands ------------------------------------------------------------------
+function isOwner(msg) { return msg.author.id === cfg.OWNER_ID; }
 function inAllowedChannel(msg) {
-  if (!msg.guild) return false; // blocks DMs and group DMs entirely
+  if (!msg.guild) return false; 
   return msg.channelId === cfg.TEXT_CHANNEL_ID;
-}
-
-function printQueueToConsole() {
-  log(`Current play order (${state.order.length} videos):`);
-  state.order.forEach((url, i) => log(`  ${i + 1}. ${labelOf(url)}`));
-}
-
-function printPlaylistToConsole() {
-  log(`Full playlist (${PLAYLIST.length} videos):`);
-  PLAYLIST.forEach((url, i) => log(`  ${i + 1}. ${labelOf(url)}`));
 }
 
 function formatUptime(ms) {
   const s = Math.floor(ms / 1000);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return `${h}h ${m}m ${sec}s`;
+  return `${h}h ${m}m ${s % 60}s`;
 }
 
 client.on("messageCreate", async msg => {
-  if (!isOwner(msg)) return;
-  if (!inAllowedChannel(msg)) return;
+  if (!isOwner(msg) || !inAllowedChannel(msg)) return;
   if (!msg.content.startsWith(cfg.PREFIX)) return;
 
   const [cmd, ...args] = msg.content.slice(cfg.PREFIX.length).trim().split(/\s+/);
 
   switch (cmd) {
+
     case "next": {
-      if (forceRestart(null)) await msg.reply("Skipping and reshuffling playlist.");
-      else await msg.reply("Nothing is playing right now.");
+      if (interruptCurrentVideo()) {
+        log("[CMD] Skip triggered by owner");
+      } else {
+        log("[WARN] Skip requested but nothing is currently playing");
+      }
       break;
     }
 
     case "play": {
       const n = parseInt(args[0]);
       if (isNaN(n) || n < 1 || n > PLAYLIST.length) {
-        await msg.reply(`Pick a number between 1 and ${PLAYLIST.length}. Use ${cfg.PREFIX}playlist to see them.`);
+        await msg.reply(`Pick a number 1-${PLAYLIST.length}. Use ${cfg.PREFIX}playlist to see options in your logs.`);
         break;
       }
       const url = PLAYLIST[n - 1];
-      forceRestart(url);
-      await msg.reply(`Jumping to #${n} — ${labelOf(url)}`);
+      
+      // Inject selected video directly to the front of the queue and skip current
+      state.queue.unshift(url);
+      interruptCurrentVideo();
+      
+      await msg.reply(`Jumping to video #${n}`);
+      log(`[CMD] Owner jumped to #${n} - ${labelOf(url)}`);
       break;
     }
 
     case "queue": {
-      printQueueToConsole();
+      log(`[QUEUE] Next up (${state.queue.length} videos):`);
+      state.queue.forEach((url, i) => log(`  ${i + 1}. ${labelOf(url)}`));
       break;
     }
 
     case "playlist": {
-      printPlaylistToConsole();
+      log(`[PLAYLIST] Full roster (${PLAYLIST.length} videos):`);
+      PLAYLIST.forEach((url, i) => log(`  ${i + 1}. ${labelOf(url)}`));
       break;
     }
 
     case "status": {
       const uptime = state.sessionStart ? formatUptime(Date.now() - state.sessionStart) : "n/a";
+      const currentTrack = state.currentUrl ? labelOf(state.currentUrl) : "None";
       await msg.reply(
-        `Session uptime: ${uptime}\n` +
+        `Uptime: ${uptime}\n` +
+        `Playing: ${currentTrack}\n` +
         `Resolution: ${cfg.WIDTH}x${cfg.HEIGHT} @ ${cfg.FPS}fps\n` +
         `Bitrate: ${cfg.BITRATE_KBPS}-${cfg.BITRATE_MAX_KBPS} kbps\n` +
         `Preset: ${cfg.PRESET}\n` +
-        `Videos in playlist: ${PLAYLIST.length}\n` +
-        `Voice channel: ${cfg.CHANNEL_ID}`
+        `Total Playlist Tracks: ${PLAYLIST.length}`
       );
       break;
     }
@@ -296,25 +271,29 @@ client.on("messageCreate", async msg => {
         await msg.reply("Usage: !bitrate <300-8000>");
         break;
       }
-      cfg.BITRATE_KBPS = kbps;
+      cfg.BITRATE_KBPS     = kbps;
       cfg.BITRATE_MAX_KBPS = Math.round(kbps * 1.4);
-      const currentUrl = state.order[0] || null;
-      forceRestart(currentUrl);
-      await msg.reply(`Bitrate set to ${cfg.BITRATE_KBPS}-${cfg.BITRATE_MAX_KBPS} kbps. Restarting stream to apply.`);
+      
+      if (state.currentUrl) state.queue.unshift(state.currentUrl);
+      interruptCurrentVideo();
+      
+      await msg.reply(`Bitrate adjusted to ${cfg.BITRATE_KBPS}-${cfg.BITRATE_MAX_KBPS} kbps. Restarting stream...`);
       break;
     }
 
     case "resolution": {
       const match = (args[0] || "").match(/^(\d+)x(\d+)$/i);
       if (!match) {
-        await msg.reply("Usage: !resolution <width>x<height>, e.g. !resolution 1920x1080");
+        await msg.reply("Usage: !resolution <WxH> e.g. !resolution 1280x720");
         break;
       }
       cfg.WIDTH  = parseInt(match[1]);
       cfg.HEIGHT = parseInt(match[2]);
-      const currentUrl = state.order[0] || null;
-      forceRestart(currentUrl);
-      await msg.reply(`Resolution set to ${cfg.WIDTH}x${cfg.HEIGHT}. Restarting stream to apply.`);
+      
+      if (state.currentUrl) state.queue.unshift(state.currentUrl);
+      interruptCurrentVideo();
+      
+      await msg.reply(`Resolution adjusted to ${cfg.WIDTH}x${cfg.HEIGHT}. Restarting stream...`);
       break;
     }
 
@@ -327,74 +306,68 @@ client.on("messageCreate", async msg => {
       }
       cfg.PRESET = p;
       encoder = buildEncoder();
-      const currentUrl = state.order[0] || null;
-      forceRestart(currentUrl);
-      await msg.reply(`Encoder preset set to ${p}. Restarting stream to apply.`);
+      
+      if (state.currentUrl) state.queue.unshift(state.currentUrl);
+      interruptCurrentVideo();
+      
+      await msg.reply(`Preset adjusted to ${p}. Restarting stream...`);
       break;
     }
 
     case "help": {
       await msg.reply(
-        "Commands (owner only):\n" +
-        `${cfg.PREFIX}next - skip and reshuffle\n` +
-        `${cfg.PREFIX}play <number> - jump to a specific video\n` +
-        `${cfg.PREFIX}queue - show current play order\n` +
-        `${cfg.PREFIX}playlist - list all videos with numbers\n` +
-        `${cfg.PREFIX}status - show stream stats\n` +
-        `${cfg.PREFIX}bitrate <kbps> - change bitrate (300-8000)\n` +
-        `${cfg.PREFIX}resolution <WxH> - change resolution, e.g. 1920x1080\n` +
-        `${cfg.PREFIX}preset <name> - change encoder preset (ultrafast..medium)`
+        `**Commands (owner only):**\n` +
+        `\`${cfg.PREFIX}next\` - Skip current video\n` +
+        `\`${cfg.PREFIX}play <n>\` - Jump to video #n\n` +
+        `\`${cfg.PREFIX}queue\` - Print queue order to console\n` +
+        `\`${cfg.PREFIX}playlist\` - Print full playlist to console\n` +
+        `\`${cfg.PREFIX}status\` - Check stream statistics\n` +
+        `\`${cfg.PREFIX}bitrate <kbps>\` - Change dynamic bitrate (300-8000)\n` +
+        `\`${cfg.PREFIX}resolution <WxH>\` - Set canvas resolution\n` +
+        `\`${cfg.PREFIX}preset <type>\` - Set optimization preset`
       );
       break;
     }
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Voice state — follow owner, detect kicks
-// ─────────────────────────────────────────────────────────────────────────────
+// -- Voice events --------------------------------------------------------------
 client.on("voiceStateUpdate", (oldState, newState) => {
   if (newState.member?.id === cfg.OWNER_ID
       && newState.channelId
       && newState.channelId !== cfg.CHANNEL_ID) {
-    log(`Following owner to channel ${newState.channelId}`);
+    log(`[INFO] Following owner to channel ${newState.channelId}`);
     cfg.CHANNEL_ID = newState.channelId;
   }
-
   const kicked =
     oldState.channelId === cfg.CHANNEL_ID &&
     !newState.channelId &&
     oldState.member?.id === client.user?.id;
-
-  if (kicked) log("Kicked from voice channel — reconnect loop will rejoin");
+  if (kicked) log(`[WARN] Disconnected from voice - automated reconnect handler active`);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shutdown
-// ─────────────────────────────────────────────────────────────────────────────
+// -- Shutdown ------------------------------------------------------------------
 function shutdown() {
-  log("Shutting down");
+  log("[INFO] Shutting down cleanly...");
   try { clearInterval(streamer._keepAlive); } catch (_) {}
   try { state.currentCommand?.kill("SIGKILL"); } catch (_) {}
   try { streamer.stopStream?.(); } catch (_) {}
-  try { fs.unlinkSync(CONCAT_PATH); } catch (_) {}
   try { client.destroy(); } catch (_) {}
   process.exit(0);
 }
 
 process.on("SIGINT",  shutdown);
 process.on("SIGTERM", shutdown);
-process.on("unhandledRejection", err => log(`Unhandled rejection: ${err?.message ?? err}`));
-process.on("uncaughtException",  err => { log(`Fatal error: ${err?.message}`); process.exit(1); });
+process.on("unhandledRejection", err => log(`[WARN] Unhandled rejection: ${err?.message ?? err}`));
+process.on("uncaughtException",  err => { log(`[FATAL] Uncaught exception: ${err?.message}`); process.exit(1); });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Login
-// ─────────────────────────────────────────────────────────────────────────────
+// -- Login ---------------------------------------------------------------------
 client.on("ready", () => {
-  log(`Logged in as ${client.user.tag}`);
-  log(`${PLAYLIST.length} video(s) in playlist`);
+  log(`[INFO] Logged in as ${client.user.tag}`);
+  log(`[INFO] Loaded ${PLAYLIST.length} videos`);
   startStream();
 });
 
-log("Starting Discord stream bot");
+log("[INFO] Initializing Discord stream client...");
 client.login(cfg.TOKEN);
+    
