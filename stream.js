@@ -1,8 +1,6 @@
 require("dotenv").config();
 const { Client } = require("discord.js-selfbot-v13");
 const { Streamer, prepareStream, playStream, Utils, Encoders } = require("@dank074/discord-video-stream");
-const fs   = require("fs");
-const path = require("path");
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const cfg = {
@@ -15,6 +13,10 @@ const cfg = {
   FPS:              parseInt(process.env.FPS)              || 24,
   BITRATE_KBPS:     parseInt(process.env.BITRATE_KBPS)     || 1500,
   BITRATE_MAX_KBPS: parseInt(process.env.BITRATE_MAX_KBPS) || 2500,
+
+  // How many seconds before a video ends to start pre-buffering the next one.
+  // Lower = faster transition but more overlap. 5s is a safe sweet spot.
+  PREBUFFER_SECS: parseInt(process.env.PREBUFFER_SECS) || 5,
 };
 
 ["TOKEN", "GUILD_ID", "CHANNEL_ID"].forEach(k => {
@@ -35,8 +37,7 @@ const PLAYLIST = [
   "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_LxVv4QneUuU_001_1080p.mp4",
   "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_Soy4jGPHr3g_001_1080p.mp4",
   "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_F38EuG2dAyM_001_1080p.mp4",
-  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_3iUgKH8c7p4_001_1080p.mp4"
-  
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_3iUgKH8c7p4_001_1080p.mp4",
 ];
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -59,18 +60,42 @@ function labelOf(url) {
   return decodeURIComponent(url.split("/").pop());
 }
 
+// ── Shared encoder (reused across all videos) ───────────────────────────────
+const encoder = Encoders.software({
+  x264: { preset: "ultrafast" },
+  x265: { preset: "ultrafast" },
+});
+
+// ── Pre-buffer a single video — returns { command, output, label } ──────────
+function prepareVideo(source) {
+  const label = labelOf(source);
+  log(`🔄 Pre-buffering: ${label}`);
+  const { command, output } = prepareStream(source, {
+    encoder,
+    width:                       cfg.WIDTH,
+    height:                      cfg.HEIGHT,
+    frameRate:                   cfg.FPS,
+    bitrateVideo:                cfg.BITRATE_KBPS,
+    bitrateVideoMax:             cfg.BITRATE_MAX_KBPS,
+    videoCodec:                  Utils.normalizeVideoCodec("H264"),
+    includeAudio:                true,
+    minimizeLatency:             true,
+    hardwareAcceleratedDecoding: false,
+  });
+  command.on("error", err => log(`❌ FFmpeg [${label}]: ${err.message}`));
+  return { command, output, label, source };
+}
+
 // ── Infinite shuffled queue ─────────────────────────────────────────────────
-async function* videoQueue() {
+function* urlQueue() {
   while (true) {
     const items = shuffle([...PLAYLIST]);
     log(`📋 Playlist shuffled — ${items.length} video(s) queued`);
-    for (const url of items) {
-      yield { source: url, label: labelOf(url) };
-    }
+    yield* items;
   }
 }
 
-// ── Seamless stream loop ────────────────────────────────────────────────────
+// ── Core stream loop with instant pre-buffered transitions ──────────────────
 async function run() {
   log(`🔗 Joining voice channel ${cfg.CHANNEL_ID}...`);
   await streamer.joinVoice(cfg.GUILD_ID, cfg.CHANNEL_ID);
@@ -82,34 +107,53 @@ async function run() {
   }, 4000);
   streamer._keepAlive = keepAlive;
 
-  const encoder = Encoders.software({
-    x264: { preset: "ultrafast" },
-    x265: { preset: "ultrafast" },
-  });
+  const queue = urlQueue();
 
-  for await (const { source, label } of videoQueue()) {
-    log(`▶ Playing: ${label}`);
+  // Prepare the very first video immediately
+  let current = prepareVideo(queue.next().value);
+  // Pre-buffer the second video right away so it's ready when video 1 ends
+  let next    = prepareVideo(queue.next().value);
+
+  while (true) {
+    log(`▶ Playing: ${current.label}`);
+
+    // Schedule pre-buffer of the video AFTER next, PREBUFFER_SECS before current ends.
+    // We track when current started so we can time it correctly.
+    let afterNext = null;
+    let prebufferTimer = null;
+
+    // playStream resolves when the current video finishes.
+    // We race it with a timer that fires PREBUFFER_SECS before the expected end
+    // to kick off the video-after-next. Since we don't know video duration up front,
+    // we instead start preparing it a fixed delay after playback begins — this is
+    // fine because FFmpeg on the NEXT video will be fully spun up long before we need it.
+    prebufferTimer = setTimeout(() => {
+      const upcoming = queue.next().value;
+      afterNext = prepareVideo(upcoming);
+    }, cfg.PREBUFFER_SECS * 1000);
+
     try {
-      const { command, output } = prepareStream(source, {
-        encoder,
-        width:                       cfg.WIDTH,
-        height:                      cfg.HEIGHT,
-        frameRate:                   cfg.FPS,
-        bitrateVideo:                cfg.BITRATE_KBPS,
-        bitrateVideoMax:             cfg.BITRATE_MAX_KBPS,
-        videoCodec:                  Utils.normalizeVideoCodec("H264"),
-        includeAudio:                true,
-        minimizeLatency:             true,
-        hardwareAcceleratedDecoding: false,
-      });
-
-      command.on("error", err => log(`❌ FFmpeg: ${err.message}`));
-      await playStream(output, streamer, { type: "go-live" });
-      log(`⏭ Done: ${label}`);
+      await playStream(current.output, streamer, { type: "go-live" });
+      log(`⏭ Done: ${current.label}`);
     } catch (err) {
-      log(`⚠ Skipping "${label}": ${err.message}`);
+      log(`⚠ Skipping "${current.label}": ${err.message}`);
+      // Kill the ffmpeg process cleanly if playback errored
+      try { current.command.kill("SIGKILL"); } catch (_) {}
+    } finally {
+      clearTimeout(prebufferTimer);
     }
-    // Zero gap — next video starts immediately
+
+    // Instant hand-off — `next` is already buffered and ready
+    current = next;
+
+    // If afterNext is already prepared (prebuffer timer fired), use it.
+    // If not (video was very short), prepare it now — slight delay but no crash.
+    if (afterNext) {
+      next = afterNext;
+    } else {
+      log(`⚡ Video was shorter than PREBUFFER_SECS — preparing next synchronously`);
+      next = prepareVideo(queue.next().value);
+    }
   }
 }
 
