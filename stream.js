@@ -13,6 +13,7 @@ const cfg = {
   GUILD_ID:         process.env.GUILD_ID,
   CHANNEL_ID:       process.env.CHANNEL_ID,
   OWNER_ID:         process.env.OWNER_ID,
+  TEXT_CHANNEL_ID:  process.env.TEXT_CHANNEL_ID,
   PREFIX:           process.env.PREFIX || "!",
 
   WIDTH:            parseInt(process.env.WIDTH)            || 1920,
@@ -23,7 +24,7 @@ const cfg = {
   PRESET:           process.env.PRESET || "veryfast",
 };
 
-for (const key of ["TOKEN", "GUILD_ID", "CHANNEL_ID", "OWNER_ID"]) {
+for (const key of ["TOKEN", "GUILD_ID", "CHANNEL_ID", "OWNER_ID", "TEXT_CHANNEL_ID"]) {
   if (!cfg[key]) {
     console.error(`Missing required env var: ${key}`);
     process.exit(1);
@@ -210,9 +211,27 @@ function forceRestart(jumpUrl) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Commands — owner only, any channel
+// Commands — owner only, ONE server text channel only, DMs always ignored
 // ─────────────────────────────────────────────────────────────────────────────
+// Selfbot activity in DMs is a strong ban-risk signal, so DMs are never read
+// at all, even from the owner. Commands only work in the exact configured
+// TEXT_CHANNEL_ID inside a real server.
 const isOwner = msg => msg.author.id === cfg.OWNER_ID;
+
+function inAllowedChannel(msg) {
+  if (!msg.guild) return false; // blocks DMs and group DMs entirely
+  return msg.channelId === cfg.TEXT_CHANNEL_ID;
+}
+
+function printQueueToConsole() {
+  log(`Current play order (${state.order.length} videos):`);
+  state.order.forEach((url, i) => log(`  ${i + 1}. ${labelOf(url)}`));
+}
+
+function printPlaylistToConsole() {
+  log(`Full playlist (${PLAYLIST.length} videos):`);
+  PLAYLIST.forEach((url, i) => log(`  ${i + 1}. ${labelOf(url)}`));
+}
 
 function formatUptime(ms) {
   const s = Math.floor(ms / 1000);
@@ -224,6 +243,7 @@ function formatUptime(ms) {
 
 client.on("messageCreate", async msg => {
   if (!isOwner(msg)) return;
+  if (!inAllowedChannel(msg)) return;
   if (!msg.content.startsWith(cfg.PREFIX)) return;
 
   const [cmd, ...args] = msg.content.slice(cfg.PREFIX.length).trim().split(/\s+/);
@@ -248,21 +268,12 @@ client.on("messageCreate", async msg => {
     }
 
     case "queue": {
-      const lines = state.order.slice(0, 10).map((url, i) => `${i + 1}. ${labelOf(url)}`);
-      await msg.reply(`Current play order:\n${lines.join("\n") || "building..."}`);
+      printQueueToConsole();
       break;
     }
 
     case "playlist": {
-      const lines  = PLAYLIST.map((url, i) => `${i + 1}. ${labelOf(url)}`);
-      const chunks = [];
-      let chunk    = `Playlist (${PLAYLIST.length} videos):\n`;
-      for (const line of lines) {
-        if (chunk.length + line.length + 1 > 1900) { chunks.push(chunk); chunk = ""; }
-        chunk += line + "\n";
-      }
-      if (chunk) chunks.push(chunk);
-      for (const c of chunks) await msg.reply(c);
+      printPlaylistToConsole();
       break;
     }
 
