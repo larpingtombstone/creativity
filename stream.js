@@ -300,4 +300,3 @@ client.on("ready", () => {
 
 log("🚀 Starting...");
 client.login(cfg.TOKEN);
-And improve the code nor the autoplay because its restream ( unstream and stream again )  and discord don't like that.
