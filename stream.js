@@ -26,6 +26,9 @@ const PLAYLIST = [
   "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_My-Bread-was-Burnt-to-a-Crisp-Kasane-Tet_Media_YxSS7PkzGrQ_001_1080p.mp4",
   "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Defoko-My-Bread-Was-Burnt-to-a-Crisp-UTA_Media_jRlHeEyxvbE_001_1080p.mp4",
   "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/g.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_HE0mAgDAx-Q_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_Media_uIyivoWQVjs_001_1080p.mp4",
+  "https://loowdhvbbhfjcpixsvxt.supabase.co/storage/v1/object/public/Video's/YTSave_YouTube_My-Bread-was-Burnt-to-a-Crisp-Kasane-Tet_Media_YxSS7PkzGrQ_001_1080p.mp4",
 ];
 // ───────────────────────────────────────────────────────────────────────────
 
